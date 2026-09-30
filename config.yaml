@@ -1,0 +1,60 @@
+# DeepGuard-Audio 攻防对抗后端全局配置
+# 所有路径相对于本文件所在目录解析（或使用绝对路径）
+
+# ------------------------------------------------------------------ #
+# 数据
+# ------------------------------------------------------------------ #
+data:
+  # 若 protocol 为空且 auto_generate=true，则用 data_gen 生成合成数据
+  auto_generate: true
+  protocol: ""                 # 指向真实 ASVspoof protocol.csv
+  audio_dir: ""                # 音频根目录
+  synth_out: "deepguard_backend/data/synth"
+  n_bonafide: 24
+  n_spoof: 24
+  duration: 3.0
+  seed: 1234
+
+# ------------------------------------------------------------------ #
+# 评测阈值（赛题§六 §八）
+# ------------------------------------------------------------------ #
+eval:
+  threshold: 0.5               # 攻击成功阈值 τ
+  duration_min: 0.95
+  duration_max: 1.05
+  stoi_min: 0.45
+  si_sdr_min: -5.0
+  cer_max: 0.30
+  clipping_max: 0.10
+  silence_max: 0.80
+  require_asr: false           # 若 true，无 ASR 时内容保持判非法
+
+# ------------------------------------------------------------------ #
+# 攻击池（spec §十 A0）—— 名称对应 attacks.registry
+# ------------------------------------------------------------------ #
+attacks:
+  A_codec: {codec: mp3, bitrate_kbps: 64, bits: 8, n_bands: 32, lowpass_hz: 8000}
+  A_noise: {kind: pink, snr_db: 20.0}
+  A_filter: {kind: random_eq, n_stages: 2, gain_db: 2.5}
+  A_channel: {rt60: 0.25, resample_to: 8000, gain_db: 1.5, compress: true}
+  A_hidden: {shuffle: true}
+
+# ------------------------------------------------------------------ #
+# 防御池（spec §十 D0 + hidden）
+# ------------------------------------------------------------------ #
+defenses:
+  D_GMM: {n_components: 32, num_ceps: 20, epochs: 0}
+  D_LCNN: {num_ceps: 20, max_frames: 160, epochs: 8, batch_size: 16, lr: 0.001, device: cpu}
+  D_RawNet2: {max_samples: 64000, epochs: 6, batch_size: 8, lr: 0.001, device: cpu}
+  D_flat: {}
+  D_hbe: {}
+  D_phase: {}
+
+# ------------------------------------------------------------------ #
+# 运行选项
+# ------------------------------------------------------------------ #
+run:
+  attacks: "all"               # "all" 或逗号分隔，如 "A_codec,A_noise"
+  defenses: "all"              # "all" 或逗号分隔，如 "D_GMM,D_LCNN"
+  out_dir: "deepguard_backend/report"
+  verbose: true
